@@ -1,0 +1,47 @@
+modbus:
+  proxy:
+    # Port on which the proxy listens for client connections
+    port: 502
+    # Maximum number of simultaneous client connections
+    max-clients: 10
+
+  upstream:
+    # IP address of the SolarEdge inverter
+    host: 192.168.1.100
+    # Modbus TCP port on the inverter (SolarEdge default: 1502)
+    port: 1502
+    # Timeout for individual Modbus requests in milliseconds
+    request-timeout-ms: 5000
+    # Initial reconnect delay in milliseconds (doubles on each failure, up to max)
+    reconnect-initial-delay-ms: 1000
+    # Maximum reconnect delay in milliseconds
+    reconnect-max-delay-ms: 30000
+
+  queue:
+    # Maximum number of requests waiting in the dispatch queue
+    capacity: 50
+    # How long to wait for a queue slot before rejecting the request (milliseconds)
+    enqueue-timeout-ms: 2000
+
+# Spring Boot HTTP server (Actuator endpoints)
+server:
+  port: 8080
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: modbus-proxy
+
+logging:
+  level:
+    ms.rohde.modbusproxy: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

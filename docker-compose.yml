@@ -1,0 +1,26 @@
+services:
+  modbus-proxy:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "502:502"    # Modbus TCP (clients: Home Assistant, evcc)
+      - "8080:8080"  # Spring Boot Actuator (health, metrics, prometheus)
+    environment:
+      # Required: SolarEdge inverter address
+      - MODBUS_UPSTREAM_HOST=192.168.1.100
+      - MODBUS_UPSTREAM_PORT=1502
+      # Optional overrides (defaults are in application.yml):
+      # - MODBUS_UPSTREAM_REQUEST_TIMEOUT_MS=5000
+      # - MODBUS_PROXY_MAX_CLIENTS=10
+      # - MODBUS_QUEUE_CAPACITY=50
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
