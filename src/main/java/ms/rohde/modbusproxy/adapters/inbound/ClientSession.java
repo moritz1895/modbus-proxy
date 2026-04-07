@@ -1,7 +1,9 @@
 package ms.rohde.modbusproxy.adapters.inbound;
 
+import ms.rohde.modbusproxy.core.app.ErrorEntry;
 import ms.rohde.modbusproxy.core.domain.ModbusTcpFrame;
 import ms.rohde.modbusproxy.ports.inbound.ModbusRequestHandler;
+import ms.rohde.modbusproxy.ports.outbound.ErrorLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -28,15 +31,18 @@ class ClientSession implements Runnable {
     private final Socket clientSocket;
     private final String clientId;
     private final ModbusRequestHandler requestHandler;
+    private final ErrorLog errorLog;
     private final long requestTimeoutMs;
 
     ClientSession(Socket clientSocket,
                   String clientId,
                   ModbusRequestHandler requestHandler,
+                  ErrorLog errorLog,
                   long requestTimeoutMs) {
         this.clientSocket = clientSocket;
         this.clientId = clientId;
         this.requestHandler = requestHandler;
+        this.errorLog = errorLog;
         this.requestTimeoutMs = requestTimeoutMs;
     }
 
@@ -76,12 +82,15 @@ class ClientSession implements Runnable {
         } catch (TimeoutException e) {
             log.warn("Timeout waiting for upstream response (client='{}', txId={})",
                     clientId, ModbusTcpFrame.transactionId(requestFrame));
+            errorLog.record(new ErrorEntry(Instant.now(), "CLIENT_TIMEOUT", clientId,
+                    "Timeout waiting for upstream response (txId=" + ModbusTcpFrame.transactionId(requestFrame) + ")"));
             responseFuture.cancel(false);
             sendExceptionResponse(out, requestFrame);
             return;
         } catch (ExecutionException e) {
             log.warn("Request failed for client '{}' (txId={}): {}",
                     clientId, ModbusTcpFrame.transactionId(requestFrame), e.getCause().getMessage());
+            errorLog.record(new ErrorEntry(Instant.now(), "REQUEST_FAILED", clientId, e.getCause().getMessage()));
             sendExceptionResponse(out, requestFrame);
             return;
         }

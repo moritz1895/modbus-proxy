@@ -1,5 +1,6 @@
 package ms.rohde.modbusproxy.adapters.config;
 
+import ms.rohde.modbusproxy.adapters.health.ErrorRegistry;
 import ms.rohde.modbusproxy.adapters.inbound.TcpServer;
 import ms.rohde.modbusproxy.adapters.outbound.UpstreamConnector;
 import ms.rohde.modbusproxy.core.app.RequestDispatcher;
@@ -29,9 +30,11 @@ public class ProxyConfiguration {
 
     @Bean
     public RequestDispatcher requestDispatcher(UpstreamConnector upstreamConnector,
+                                               ErrorRegistry errorRegistry,
                                                ModbusProxyProperties properties) {
         return new RequestDispatcher(
                 upstreamConnector,
+                errorRegistry,
                 properties.queue().capacity(),
                 properties.queue().enqueueTimeoutMs(),
                 properties.upstream().requestTimeoutMs()
@@ -73,11 +76,13 @@ public class ProxyConfiguration {
 
     @Bean
     public TcpServer tcpServer(ModbusProxyProperties properties,
-                               RequestDispatcher requestDispatcher) {
+                               RequestDispatcher requestDispatcher,
+                               ErrorRegistry errorRegistry) {
         return new TcpServer(
                 properties.proxy(),
                 properties.upstream(),
-                requestDispatcher
+                requestDispatcher,
+                errorRegistry
         );
     }
 }

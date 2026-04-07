@@ -3,6 +3,7 @@ package ms.rohde.modbusproxy.core.app;
 import ms.rohde.modbusproxy.core.domain.ModbusTcpFrame;
 import ms.rohde.modbusproxy.core.domain.PendingRequest;
 import ms.rohde.modbusproxy.ports.inbound.ModbusRequestHandler;
+import ms.rohde.modbusproxy.ports.outbound.ErrorLog;
 import ms.rohde.modbusproxy.ports.outbound.UpstreamGateway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,7 @@ public class RequestDispatcher implements ModbusRequestHandler {
     private static final Logger log = LoggerFactory.getLogger(RequestDispatcher.class);
 
     private final UpstreamGateway upstreamGateway;
+    private final ErrorLog errorLog;
     private final LinkedBlockingQueue<PendingRequest> queue;
     private final long enqueueTimeoutMs;
     private final long requestTimeoutMs;
@@ -38,10 +40,12 @@ public class RequestDispatcher implements ModbusRequestHandler {
     private Thread processingThread;
 
     public RequestDispatcher(UpstreamGateway upstreamGateway,
+                             ErrorLog errorLog,
                              int queueCapacity,
                              long enqueueTimeoutMs,
                              long requestTimeoutMs) {
         this.upstreamGateway = upstreamGateway;
+        this.errorLog = errorLog;
         this.queue = new LinkedBlockingQueue<>(queueCapacity);
         this.enqueueTimeoutMs = enqueueTimeoutMs;
         this.requestTimeoutMs = requestTimeoutMs;
@@ -59,7 +63,9 @@ public class RequestDispatcher implements ModbusRequestHandler {
             boolean accepted = queue.offer(pending, enqueueTimeoutMs, TimeUnit.MILLISECONDS);
             if (!accepted) {
                 log.warn("Queue full – rejecting request from '{}'", clientId);
-                pending.failWith(new IllegalStateException("Modbus request queue is full"));
+                IllegalStateException cause = new IllegalStateException("Modbus request queue is full");
+                errorLog.record(new ErrorEntry(Instant.now(), "QUEUE_FULL", clientId, cause.getMessage()));
+                pending.failWith(cause);
             } else {
                 log.debug("Request enqueued (client='{}', queueSize={})", clientId, queue.size());
             }
@@ -116,7 +122,9 @@ public class RequestDispatcher implements ModbusRequestHandler {
         long ageMs = Instant.now().toEpochMilli() - pending.enqueuedAt().toEpochMilli();
         if (ageMs > requestTimeoutMs) {
             log.warn("Request from '{}' expired in queue after {}ms – discarding", pending.clientId(), ageMs);
-            pending.failWith(new TimeoutException("Request expired after " + ageMs + "ms in queue"));
+            TimeoutException cause = new TimeoutException("Request expired after " + ageMs + "ms in queue");
+            errorLog.record(new ErrorEntry(Instant.now(), "REQUEST_TIMEOUT", pending.clientId(), cause.getMessage()));
+            pending.failWith(cause);
             return;
         }
 
@@ -134,6 +142,7 @@ public class RequestDispatcher implements ModbusRequestHandler {
                     response.length);
         } catch (IOException e) {
             log.warn("Upstream error for client '{}': {}", pending.clientId(), e.getMessage());
+            errorLog.record(new ErrorEntry(Instant.now(), "UPSTREAM_ERROR", pending.clientId(), e.getMessage()));
             pending.failWith(e);
         }
     }

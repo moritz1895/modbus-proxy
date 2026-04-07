@@ -1,5 +1,6 @@
 package ms.rohde.modbusproxy.core.app;
 
+import ms.rohde.modbusproxy.ports.outbound.ErrorLog;
 import ms.rohde.modbusproxy.ports.outbound.UpstreamGateway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,11 +34,14 @@ class RequestDispatcherTest {
     @Mock
     private UpstreamGateway upstreamGateway;
 
+    @Mock
+    private ErrorLog errorLog;
+
     private RequestDispatcher dispatcher;
 
     @BeforeEach
     void setUp() {
-        dispatcher = new RequestDispatcher(upstreamGateway, 10, 200, 5000);
+        dispatcher = new RequestDispatcher(upstreamGateway, errorLog, 10, 200, 5000);
         dispatcher.start();
     }
 
@@ -71,7 +76,7 @@ class RequestDispatcherTest {
     void submit_givenFullQueue_thenFutureCompletesExceptionallyImmediately() throws Exception {
         int capacity = 2;
         long enqueueTimeoutMs = 50;
-        RequestDispatcher smallDispatcher = new RequestDispatcher(upstreamGateway, capacity, enqueueTimeoutMs, 5000);
+        RequestDispatcher smallDispatcher = new RequestDispatcher(upstreamGateway, errorLog, capacity, enqueueTimeoutMs, 5000);
         smallDispatcher.start();
 
         CountDownLatch processingStarted = new CountDownLatch(1);
@@ -120,6 +125,18 @@ class RequestDispatcherTest {
     }
 
     @Test
+    void submit_givenUpstreamIOException_thenRecordsUpstreamError() throws Exception {
+        when(upstreamGateway.sendAndReceive(any()))
+                .thenThrow(new IOException("Connection refused"));
+
+        CompletableFuture<byte[]> future = dispatcher.submit(REQUEST, "test-client");
+        assertThrows(ExecutionException.class, () -> future.get(2, TimeUnit.SECONDS));
+
+        verify(errorLog, timeout(2000)).record(argThat(e ->
+                "UPSTREAM_ERROR".equals(e.category()) && "test-client".equals(e.source())));
+    }
+
+    @Test
     void queueSize_givenNoRequests_thenReturnsZero() {
         assertEquals(0, dispatcher.queueSize());
     }
@@ -134,7 +151,7 @@ class RequestDispatcherTest {
         dispatcher.stop();
         assertFalse(dispatcher.isRunning());
         // Prevent double-stop in @AfterEach
-        dispatcher = new RequestDispatcher(upstreamGateway, 10, 200, 5000);
+        dispatcher = new RequestDispatcher(upstreamGateway, errorLog, 10, 200, 5000);
         dispatcher.start();
     }
 }

@@ -2,6 +2,7 @@ package ms.rohde.modbusproxy.adapters.inbound;
 
 import ms.rohde.modbusproxy.adapters.config.ModbusProxyProperties;
 import ms.rohde.modbusproxy.ports.inbound.ModbusRequestHandler;
+import ms.rohde.modbusproxy.ports.outbound.ErrorLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
@@ -26,6 +27,7 @@ public class TcpServer implements SmartLifecycle {
     private final int maxClients;
     private final long requestTimeoutMs;
     private final ModbusRequestHandler requestHandler;
+    private final ErrorLog errorLog;
 
     private ServerSocket serverSocket;
     private Thread acceptThread;
@@ -36,11 +38,13 @@ public class TcpServer implements SmartLifecycle {
 
     public TcpServer(ModbusProxyProperties.ProxyProperties proxyConfig,
                      ModbusProxyProperties.UpstreamProperties upstreamConfig,
-                     ModbusRequestHandler requestHandler) {
+                     ModbusRequestHandler requestHandler,
+                     ErrorLog errorLog) {
         this.port = proxyConfig.port();
         this.maxClients = proxyConfig.maxClients();
         this.requestTimeoutMs = upstreamConfig.requestTimeoutMs();
         this.requestHandler = requestHandler;
+        this.errorLog = errorLog;
     }
 
     @Override
@@ -109,7 +113,7 @@ public class TcpServer implements SmartLifecycle {
         String clientId = "client-" + clientNumber + "@" + client.getRemoteSocketAddress();
         activeClients.incrementAndGet();
 
-        ClientSession session = new ClientSession(client, clientId, requestHandler, requestTimeoutMs);
+        ClientSession session = new ClientSession(client, clientId, requestHandler, errorLog, requestTimeoutMs);
 
         Thread.ofVirtual()
                 .name("client-session-" + clientNumber)

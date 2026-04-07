@@ -67,7 +67,7 @@ All parameters are set via `application.yml` or environment variables (Spring Bo
 |---|---|---|---|
 | `server.port` | `SERVER_PORT` | `8080` | HTTP port for Spring Boot Actuator endpoints |
 
-Exposed Actuator endpoints: `health`, `info`, `metrics`, `prometheus`.
+Exposed Actuator endpoints: `health`, `info`, `metrics`, `prometheus`, `errors`.
 
 ## Health check
 
@@ -76,6 +76,37 @@ curl http://localhost:8080/actuator/health
 ```
 
 The custom `ModbusProxyHealthIndicator` reports `UP` when the upstream connection is established and the dispatcher is running.
+
+## Recent errors
+
+```bash
+curl http://localhost:8080/actuator/errors
+```
+
+Returns the last 10 proxy errors in chronological order. Captured error categories:
+
+| Category | Description |
+|---|---|
+| `UPSTREAM_ERROR` | I/O failure while communicating with the inverter |
+| `QUEUE_FULL` | Request rejected because the dispatch queue was full |
+| `REQUEST_TIMEOUT` | Request expired in the queue before it could be dispatched |
+| `CLIENT_TIMEOUT` | Client timed out waiting for an upstream response |
+| `REQUEST_FAILED` | Upstream returned an error for a specific request |
+
+Example response:
+
+```json
+{
+  "errors": [
+    {
+      "timestamp": "2026-04-07T19:42:01.123Z",
+      "category": "UPSTREAM_ERROR",
+      "source": "client-3@/192.168.1.50:54321",
+      "message": "Connection reset"
+    }
+  ]
+}
+```
 
 ## Example: Home Assistant configuration
 
