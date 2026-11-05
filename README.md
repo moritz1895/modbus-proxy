@@ -15,7 +15,7 @@ evcc ────────────┘
 ## Requirements
 
 - Java 25 (for local builds)
-- Docker (for containerised deployment)
+- Docker (for containerised deployment; the image build needs no local Java or Maven)
 
 ## Quick start with Docker Compose
 
@@ -26,11 +26,18 @@ MODBUS_UPSTREAM_HOST=192.168.1.100 docker compose up -d
 
 The proxy is now reachable on port `502` (Modbus TCP) and port `8080` (Spring Boot Actuator).
 
+The Docker image runs the proxy as a GraalVM native-image binary rather than on the JVM: it starts in
+well under a second and needs a fraction of the JVM's memory. The heap is capped at 128 MB
+(`-Xmx128m`); set `MODBUS_PROXY_NATIVE_OPTS` to pass different native-image runtime options instead.
+The native compilation runs inside the image build and takes several minutes and a few GB of RAM, so
+build the image on a workstation rather than on a small server.
+
 ## Building locally
 
 ```bash
 mvn clean install          # Build and run all tests
-mvn spring-boot:run        # Start locally
+mvn spring-boot:run        # Start locally on the JVM
+mvn -Pnative native:compile  # Native binary at target/modbus-proxy (needs a GraalVM 25 JDK)
 ```
 
 ## Configuration
