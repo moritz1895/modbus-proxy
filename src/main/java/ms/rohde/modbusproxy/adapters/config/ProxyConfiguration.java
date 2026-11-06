@@ -8,6 +8,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.ImportRuntimeHints;
 
 /**
  * Wires together all components of the Modbus proxy.
@@ -21,6 +22,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @EnableConfigurationProperties(ModbusProxyProperties.class)
+@ImportRuntimeHints(ModbusProxyPropertiesRuntimeHints.class)
 public class ProxyConfiguration {
 
     @Bean
