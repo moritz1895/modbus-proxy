@@ -30,8 +30,8 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd --system proxy && useradd --system --gid proxy --no-create-home proxy
-USER proxy
+    && groupadd --system modbusproxy && useradd --system --gid modbusproxy --no-create-home modbusproxy
+USER modbusproxy
 
 COPY --from=build /app/target/modbus-proxy ./modbus-proxy
 
