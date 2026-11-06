@@ -85,4 +85,22 @@
         </plugins>
     </build>
 
+    <!-- GraalVM native-image production build (see Dockerfile). The "native" profile of
+         spring-boot-starter-parent wires spring-boot-maven-plugin's process-aot goal ahead of
+         native-maven-plugin; both plugin versions come from the parent. The plain JVM jar
+         (mvn package, no profile) stays available for local development. -->
+    <profiles>
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>
